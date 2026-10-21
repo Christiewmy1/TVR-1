@@ -1,0 +1,12 @@
+# C build output
+build/
+*.o
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+
+# macOS
+.DS_Store
