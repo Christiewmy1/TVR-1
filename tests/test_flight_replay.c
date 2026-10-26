@@ -1,6 +1,11 @@
 /*
- * Replays the OpenRocket flight (tests/data/openrocket_flight.csv) through
- * the state machine and checks each transition against the sim's events.
+ * Replays OpenRocket flights (FLIGHTS below) through the state machine and
+ * checks each transition against the sim's events. Every check runs on
+ * every flight, so a threshold tuned to one flight's drag shows up when it
+ * fails on another.
+ *
+ * Only the first 5 CSV columns are read (time, altitude, vertical velocity,
+ * vertical acceleration, total acceleration); extra columns are ignored.
  *
  * Converting sim data to sensor readings:
  *  - OpenRocket's vertical acceleration excludes gravity; an accelerometer
@@ -20,8 +25,6 @@
 #include "config.h"
 #include "flight_state.h"
 
-#define CSV_PATH            "tests/data/openrocket_flight.csv"
-#define CSV_DATA_ROWS       795
 #define G_MPS2              9.81f  /* same g as the thrust-to-weight sheet */
 #define GROUND_STEP_MS      50u    /* sample period for the added ground time */
 #define GROUND_TIME_MS      3000u
@@ -35,6 +38,17 @@ typedef struct {
     uint32_t ground_hit_ms;
 } SimEvents;
 
+typedef struct {
+    const char *path;
+    int         data_rows;  /* to check every row was parsed */
+} FlightFile;
+
+static const FlightFile FLIGHTS[] = {
+    { "tests/data/openrocket_flight.csv",              795 },  /* original airframe */
+    { "tests/data/Sensor_Fusion_OR_Data_updated.csv",  680 },  /* updated airframe */
+};
+
+static const FlightFile *flight;  /* the flight the current tests replay */
 static FlightStateMachine sm;
 static SimEvents events;
 static uint32_t entered_ms[STATE_LANDED + 1];
@@ -78,10 +92,10 @@ static void record_event(const char *name, float t_s)
 
 static void replay(void)
 {
-    FILE *f = fopen(CSV_PATH, "r");
-    TEST_ASSERT_NOT_NULL_MESSAGE(f, "can't open " CSV_PATH " (run from the repo root)");
+    FILE *f = fopen(flight->path, "r");
+    TEST_ASSERT_NOT_NULL_MESSAGE(f, "can't open flight CSV (run from the repo root)");
 
-    char line[256];
+    char line[512];  /* longest header line is ~270 bytes */
     char name[32];
     float t, alt, vel, accel, accel_total;
     float last_alt = 0.0f;
@@ -107,7 +121,7 @@ static void replay(void)
         }
     }
     fclose(f);
-    TEST_ASSERT_EQUAL_INT_MESSAGE(CSV_DATA_ROWS, rows, "didn't parse every CSV row");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(flight->data_rows, rows, "didn't parse every CSV row");
 
     /* Lying still on the ground after the sim ends. */
     uint32_t end_ms = last_sample_ms;
@@ -147,8 +161,8 @@ void test_replay_launch_detected_within_100ms_of_ignition(void)
 void test_replay_burnout_detected_after_min_time_and_not_after_motor_burnout(void)
 {
     /* Fires once the axial reading drops below BURNOUT_ACCEL_THRESHOLD_G.
-     * In this sim the thrust tails off below drag (reading < 0 g) at
-     * about 1.74 s, before the motor's own burnout event. */
+     * In both sims the thrust tails off below drag (reading < 0 g) about
+     * 0.25 s before the motor's own burnout event. */
     replay();
     TEST_ASSERT_GREATER_OR_EQUAL_UINT32(entered_ms[STATE_BOOST] + BURNOUT_MIN_MS_AFTER_LAUNCH,
                                         entered_ms[STATE_COAST]);
@@ -181,11 +195,15 @@ void test_replay_landed_detected_within_hold_time_of_ground_hit(void)
 int main(void)
 {
     UNITY_BEGIN();
-    RUN_TEST(test_replay_reaches_every_state_in_order);
-    RUN_TEST(test_replay_launch_detected_within_100ms_of_ignition);
-    RUN_TEST(test_replay_burnout_detected_after_min_time_and_not_after_motor_burnout);
-    RUN_TEST(test_replay_apogee_detected_within_1s_after_true_apogee);
-    RUN_TEST(test_replay_descent_follows_apogee_on_next_sample);
-    RUN_TEST(test_replay_landed_detected_within_hold_time_of_ground_hit);
+    for (size_t i = 0; i < sizeof FLIGHTS / sizeof FLIGHTS[0]; i++) {
+        flight = &FLIGHTS[i];
+        printf("\n%s\n", flight->path);
+        RUN_TEST(test_replay_reaches_every_state_in_order);
+        RUN_TEST(test_replay_launch_detected_within_100ms_of_ignition);
+        RUN_TEST(test_replay_burnout_detected_after_min_time_and_not_after_motor_burnout);
+        RUN_TEST(test_replay_apogee_detected_within_1s_after_true_apogee);
+        RUN_TEST(test_replay_descent_follows_apogee_on_next_sample);
+        RUN_TEST(test_replay_landed_detected_within_hold_time_of_ground_hit);
+    }
     return UNITY_END();
 }
