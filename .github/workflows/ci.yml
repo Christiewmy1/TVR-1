@@ -11,6 +11,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build and run C unit tests
         run: make test
+      - name: Check the ground station's sample log matches the C encoder
+        run: make sample-log && git diff --exit-code ground/tests/data/sample_flight_raw.csv
 
   ground-tests:
     runs-on: ubuntu-latest

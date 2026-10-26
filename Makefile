@@ -13,7 +13,10 @@ UNITY_SRC := tests/unity/unity.c
 TEST_SRCS := $(wildcard tests/test_*.c)
 TEST_BINS := $(patsubst tests/%.c,$(BUILD_DIR)/%,$(TEST_SRCS))
 
-.PHONY: test clean
+SAMPLE_LOG   := ground/tests/data/sample_flight_raw.csv
+SAMPLE_INPUT := tests/data/Sensor_Fusion_OR_Data_updated.csv
+
+.PHONY: test clean sample-log
 
 # Run every test binary, then fail if any of them failed.
 test: $(TEST_BINS)
@@ -21,6 +24,14 @@ test: $(TEST_BINS)
 
 # One binary per test file: the test + all firmware sources + Unity.
 $(BUILD_DIR)/test_%: tests/test_%.c $(FW_SRCS) $(FW_HDRS) $(UNITY_SRC) | $(BUILD_DIR)
+	$(CC) $(CFLAGS) $(INCLUDES) $(filter %.c,$^) -o $@ $(LDLIBS)
+
+# Sample dongle log for the ground station, made by the real state machine
+# and encoder from an OpenRocket flight. Commit the result.
+sample-log: $(BUILD_DIR)/make_sample_log
+	./$< $(SAMPLE_INPUT) > $(SAMPLE_LOG)
+
+$(BUILD_DIR)/make_sample_log: tests/tools/make_sample_log.c $(FW_SRCS) $(FW_HDRS) | $(BUILD_DIR)
 	$(CC) $(CFLAGS) $(INCLUDES) $(filter %.c,$^) -o $@ $(LDLIBS)
 
 $(BUILD_DIR):
