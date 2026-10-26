@@ -146,8 +146,9 @@ void test_replay_launch_detected_within_100ms_of_ignition(void)
 
 void test_replay_burnout_detected_after_min_time_and_not_after_motor_burnout(void)
 {
-    /* Fires when drag exceeds thrust (axial < 1 g), which in this sim is
-     * before the motor's own burnout event. */
+    /* Fires once the axial reading drops below BURNOUT_ACCEL_THRESHOLD_G.
+     * In this sim the thrust tails off below drag (reading < 0 g) at
+     * about 1.74 s, before the motor's own burnout event. */
     replay();
     TEST_ASSERT_GREATER_OR_EQUAL_UINT32(entered_ms[STATE_BOOST] + BURNOUT_MIN_MS_AFTER_LAUNCH,
                                         entered_ms[STATE_COAST]);

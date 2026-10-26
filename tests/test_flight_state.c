@@ -135,13 +135,37 @@ void test_interrupted_launch_restarts_hold(void)
                           feed(sample(ACCEL_BOOST_G, 0.0f), SAMPLES_FOR(LAUNCH_HOLD_MS) - 1u));
 }
 
-void test_accel_dropout_does_not_break_launch_hold(void)
+void test_short_accel_dropout_does_not_break_launch_hold(void)
 {
     SensorData dropout = sample(ACCEL_REST_G, 0.0f);
     dropout.accel_valid = false;
 
     feed(sample(ACCEL_BOOST_G, 0.0f), SAMPLES_FOR(LAUNCH_HOLD_MS) - 2u);
     TEST_ASSERT_EQUAL_INT(STATE_PAD, feed(dropout, 1u));
+    TEST_ASSERT_EQUAL_INT(STATE_BOOST, feed(sample(ACCEL_BOOST_G, 0.0f), 1u));
+}
+
+void test_dropout_gap_of_exactly_the_limit_keeps_launch_hold(void)
+{
+    SensorData dropout = sample(ACCEL_REST_G, 0.0f);
+    dropout.accel_valid = false;
+
+    feed(sample(ACCEL_BOOST_G, 0.0f), SAMPLES_FOR(LAUNCH_HOLD_MS) - 1u);
+    /* Next valid sample lands exactly SENSOR_DROPOUT_RESET_MS later. */
+    feed(dropout, SENSOR_DROPOUT_RESET_MS / DT_MS - 1u);
+    TEST_ASSERT_EQUAL_INT(STATE_BOOST, feed(sample(ACCEL_BOOST_G, 0.0f), 1u));
+}
+
+void test_long_accel_dropout_restarts_launch_hold(void)
+{
+    SensorData dropout = sample(ACCEL_REST_G, 0.0f);
+    dropout.accel_valid = false;
+
+    feed(sample(ACCEL_BOOST_G, 0.0f), SAMPLES_FOR(LAUNCH_HOLD_MS) - 1u);
+    /* Next valid sample lands one tick past SENSOR_DROPOUT_RESET_MS. */
+    feed(dropout, SENSOR_DROPOUT_RESET_MS / DT_MS);
+    TEST_ASSERT_EQUAL_INT(STATE_PAD,
+                          feed(sample(ACCEL_BOOST_G, 0.0f), SAMPLES_FOR(LAUNCH_HOLD_MS) - 1u));
     TEST_ASSERT_EQUAL_INT(STATE_BOOST, feed(sample(ACCEL_BOOST_G, 0.0f), 1u));
 }
 
@@ -254,6 +278,19 @@ void test_lying_on_its_side_is_landed(void)
     TEST_ASSERT_EQUAL_INT(STATE_LANDED, feed(on_side, SAMPLES_FOR(LANDED_HOLD_MS)));
 }
 
+void test_long_dropout_restarts_landed_window(void)
+{
+    SensorData dropout = sample(ACCEL_REST_G, 3.0f);
+    dropout.baro_valid = false;
+
+    reach_descent();
+    feed(sample(ACCEL_REST_G, 3.0f), SAMPLES_FOR(LANDED_HOLD_MS) - 1u);
+    feed(dropout, SENSOR_DROPOUT_RESET_MS / DT_MS);
+    TEST_ASSERT_EQUAL_INT(STATE_DESCENT,
+                          feed(sample(ACCEL_REST_G, 3.0f), SAMPLES_FOR(LANDED_HOLD_MS) - 1u));
+    TEST_ASSERT_EQUAL_INT(STATE_LANDED, feed(sample(ACCEL_REST_G, 3.0f), 1u));
+}
+
 void test_steady_altitude_without_1g_is_not_landed(void)
 {
     reach_descent();
@@ -288,7 +325,9 @@ int main(void)
     RUN_TEST(test_launch_needs_full_hold_time);
     RUN_TEST(test_single_accel_spike_does_not_launch);
     RUN_TEST(test_interrupted_launch_restarts_hold);
-    RUN_TEST(test_accel_dropout_does_not_break_launch_hold);
+    RUN_TEST(test_short_accel_dropout_does_not_break_launch_hold);
+    RUN_TEST(test_dropout_gap_of_exactly_the_limit_keeps_launch_hold);
+    RUN_TEST(test_long_accel_dropout_restarts_launch_hold);
     RUN_TEST(test_burnout_ignored_in_first_second_then_needs_full_hold);
     RUN_TEST(test_single_low_accel_during_boost_is_ignored);
     RUN_TEST(test_still_climbing_is_not_apogee);
@@ -300,6 +339,7 @@ int main(void)
     RUN_TEST(test_slow_steady_descent_is_not_landed);
     RUN_TEST(test_steady_altitude_at_rest_is_landed);
     RUN_TEST(test_lying_on_its_side_is_landed);
+    RUN_TEST(test_long_dropout_restarts_landed_window);
     RUN_TEST(test_steady_altitude_without_1g_is_not_landed);
     RUN_TEST(test_coast_does_not_go_back_to_boost);
     RUN_TEST(test_landed_is_final);

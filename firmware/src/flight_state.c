@@ -8,6 +8,18 @@
 
 #include "config.h"
 
+/* Call on every usable sample before checking a condition. A gap longer
+ * than SENSOR_DROPOUT_RESET_MS since the last one breaks any hold in
+ * progress; shorter glitches don't. */
+static void note_sample(FlightStateMachine *sm, uint32_t now_ms)
+{
+    if (sm->holding &&
+        (uint32_t)(now_ms - sm->last_sample_ms) > SENSOR_DROPOUT_RESET_MS) {
+        sm->holding = false;
+    }
+    sm->last_sample_ms = now_ms;
+}
+
 /* Tracks how long `condition` has held without a break; one valid sample
  * where it doesn't hold resets it. Returns true once it has held for at
  * least `hold_ms`. Unsigned subtraction keeps this right if time_ms wraps. */
@@ -57,6 +69,7 @@ void flight_sm_init(FlightStateMachine *sm)
     sm->state = STATE_PAD;
     sm->holding = false;
     sm->hold_start_ms = 0u;
+    sm->last_sample_ms = 0u;
     sm->launch_ms = 0u;
     sm->max_altitude_m = -FLT_MAX;  /* any real reading replaces this */
     sm->window_min_m = 0.0f;
@@ -73,29 +86,35 @@ FlightState update_state(FlightStateMachine *sm, const SensorData *d)
 
     switch (sm->state) {
     case STATE_PAD:
-        if (d->accel_valid &&
-            held_for(sm, d->accel_axial_g > LAUNCH_ACCEL_THRESHOLD_G,
-                     d->time_ms, LAUNCH_HOLD_MS)) {
-            enter(sm, STATE_BOOST);
-            sm->launch_ms = d->time_ms;
+        if (d->accel_valid) {
+            note_sample(sm, d->time_ms);
+            if (held_for(sm, d->accel_axial_g > LAUNCH_ACCEL_THRESHOLD_G,
+                         d->time_ms, LAUNCH_HOLD_MS)) {
+                enter(sm, STATE_BOOST);
+                sm->launch_ms = d->time_ms;
+            }
         }
         break;
 
     case STATE_BOOST:
-        if (d->accel_valid &&
-            held_for(sm,
-                     d->accel_axial_g < BURNOUT_ACCEL_THRESHOLD_G &&
-                     (uint32_t)(d->time_ms - sm->launch_ms) >= BURNOUT_MIN_MS_AFTER_LAUNCH,
-                     d->time_ms, BURNOUT_HOLD_MS)) {
-            enter(sm, STATE_COAST);
+        if (d->accel_valid) {
+            note_sample(sm, d->time_ms);
+            if (held_for(sm,
+                         d->accel_axial_g < BURNOUT_ACCEL_THRESHOLD_G &&
+                         (uint32_t)(d->time_ms - sm->launch_ms) >= BURNOUT_MIN_MS_AFTER_LAUNCH,
+                         d->time_ms, BURNOUT_HOLD_MS)) {
+                enter(sm, STATE_COAST);
+            }
         }
         break;
 
     case STATE_COAST:
-        if (d->baro_valid &&
-            held_for(sm, d->altitude_m <= sm->max_altitude_m - APOGEE_ALT_DROP_M,
-                     d->time_ms, APOGEE_HOLD_MS)) {
-            enter(sm, STATE_APOGEE);
+        if (d->baro_valid) {
+            note_sample(sm, d->time_ms);
+            if (held_for(sm, d->altitude_m <= sm->max_altitude_m - APOGEE_ALT_DROP_M,
+                         d->time_ms, APOGEE_HOLD_MS)) {
+                enter(sm, STATE_APOGEE);
+            }
         }
         break;
 
@@ -104,8 +123,11 @@ FlightState update_state(FlightStateMachine *sm, const SensorData *d)
         break;
 
     case STATE_DESCENT:
-        if (d->baro_valid && d->accel_valid && landed(sm, d)) {
-            enter(sm, STATE_LANDED);
+        if (d->baro_valid && d->accel_valid) {
+            note_sample(sm, d->time_ms);
+            if (landed(sm, d)) {
+                enter(sm, STATE_LANDED);
+            }
         }
         break;
 

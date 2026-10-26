@@ -28,6 +28,7 @@ typedef struct {
     FlightState state;
     bool        holding;         /* current state's exit condition is holding */
     uint32_t    hold_start_ms;   /* when it started holding */
+    uint32_t    last_sample_ms;  /* time of the last usable sample */
     uint32_t    launch_ms;       /* when BOOST was entered */
     float       max_altitude_m;  /* highest altitude seen since launch */
     float       window_min_m;    /* altitude range seen in the current */
@@ -38,8 +39,9 @@ typedef struct {
 void flight_sm_init(FlightStateMachine *sm);
 
 /* Feeds one sensor sample and returns the state after it. A sample whose
- * needed sensor is marked invalid is skipped: it doesn't break a hold that
- * is in progress. APOGEE lasts exactly one sample, then moves to DESCENT. */
+ * needed sensor is marked invalid is skipped. A short dropout doesn't break
+ * a hold in progress, but a gap longer than SENSOR_DROPOUT_RESET_MS
+ * restarts it. APOGEE lasts exactly one sample, then moves to DESCENT. */
 FlightState update_state(FlightStateMachine *sm, const SensorData *d);
 
 #endif /* TVR1_FLIGHT_STATE_H */

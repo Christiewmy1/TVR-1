@@ -25,8 +25,9 @@
 
 /* BOOST -> COAST: axial acceleration below this (g), and at least
  * BURNOUT_MIN_MS_AFTER_LAUNCH since launch so thrust-curve dips can't
- * trigger it. */
-#define BURNOUT_ACCEL_THRESHOLD_G         1.0f
+ * trigger it. After burnout drag makes the reading slightly negative.
+ * Revisit once we have real IMU data. */
+#define BURNOUT_ACCEL_THRESHOLD_G         0.0f
 #define BURNOUT_HOLD_MS                   50u
 #define BURNOUT_MIN_MS_AFTER_LAUNCH       1000u
 
@@ -38,6 +39,10 @@
  * time, with acceleration magnitude within the tolerance of 1 g. */
 #define LANDED_ALT_BAND_M                 1.0f
 #define LANDED_HOLD_MS                    2000u
-#define LANDED_ACCEL_TOLERANCE_G          0.2f  /* TODO(placeholder): confirm with team lead */
+#define LANDED_ACCEL_TOLERANCE_G          0.2f  /* TODO(placeholder): agreed with team lead; tune once IMU noise is known */
+
+/* A gap of more than this (ms) between usable samples resets any hold in
+ * progress; shorter glitches don't. */
+#define SENSOR_DROPOUT_RESET_MS           100u
 
 #endif /* TVR1_CONFIG_H */
