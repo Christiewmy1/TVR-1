@@ -45,4 +45,17 @@
  * progress; shorter glitches don't. */
 #define SENSOR_DROPOUT_RESET_MS           100u
 
+/* ---- Gimbal PID ---------------------------------------------------------
+ * Ported unchanged from Simulation/PID_sim_TwoAxis.m (team lead confirmed).
+ * The MATLAB notes call these starting-point gains, not yet tuned. Same
+ * gains on both axes. The loop's dt is passed in at run time, since the
+ * real rate depends on the IMU (the sim uses 1 kHz). */
+#define PID_KP                            0.8f
+#define PID_KI                            0.05f
+#define PID_KD                            0.15f
+
+/* Physical gimbal limit: max deflection from centreline in any direction
+ * (a cone, not a per-axis box), in degrees. */
+#define GIMBAL_MAX_DEFLECTION_DEG         5.0f
+
 #endif /* TVR1_CONFIG_H */
