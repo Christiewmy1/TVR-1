@@ -14,6 +14,11 @@
 #ifndef TVR1_CONFIG_H
 #define TVR1_CONFIG_H
 
+/* ---- Radio ---------------------------------------------------------------
+ * Largest payload the LoRa module accepts in one AT send command, in bytes.
+ * Every telemetry packet (TELEMETRY_MAX_LEN) must fit in it. */
+#define RADIO_MAX_PAYLOAD_BYTES           240u  /* TODO(placeholder): confirm LoRa module with Yusuf */
+
 /* ---- Flight state machine ----------------------------------------------
  * *_HOLD_MS = how long a condition must hold, unbroken, before the state
  * changes. Values from the team lead (2026-10-21), based on the G61W motor;
