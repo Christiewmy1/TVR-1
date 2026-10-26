@@ -1,2 +1,2 @@
-# Runtime deps (pyserial, matplotlib) get added with the ground station code.
+pyserial==3.5
 pytest==8.3.5
