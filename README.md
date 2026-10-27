@@ -41,11 +41,17 @@ python -m pytest
 
 ```bash
 python -m ground_station --replay tests/data/sample_flight_raw.csv          # play back a recorded log
-python -m ground_station --replay tests/data/sample_flight_raw.csv --fast   # ...without waiting
+python -m ground_station --replay tests/data/sample_flight_raw.csv --speed 4  # ...4x faster
 python -m ground_station --port /dev/tty.usbserial-XXXX                    # the real dongle
+python -m ground_station --replay tests/data/sample_flight_raw.csv --fast --no-plot  # no window, just print
 ```
 
-It prints each valid packet and writes `logs/telemetry_<time>.csv`. With `--port` it also writes `logs/raw_<time>.csv`, a copy of every line from the dongle that `--replay` can play back later. At the end it prints how many packets were received, dropped (by reason), and missed.
+It opens a live dashboard showing:
+- altitude vs time, with the max altitude and each state change marked
+- signal strength (RSSI)
+- the current flight state, a warning when no data has arrived for 1 s or more, and the key numbers
+
+It also prints each valid packet and writes `logs/telemetry_<time>.csv`. With `--port` it also writes `logs/raw_<time>.csv`, a copy of every line from the dongle that `--replay` can play back later. At the end it prints how many packets were received, dropped (by reason), and missed.
 
 `make sample-log` regenerates `ground/tests/data/sample_flight_raw.csv` from an OpenRocket flight, using the real C state machine and telemetry encoder.
 

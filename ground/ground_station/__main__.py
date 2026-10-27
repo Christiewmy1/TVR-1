@@ -1,8 +1,9 @@
 """Command line: python -m ground_station (--replay LOG | --port DEVICE)
 
-Reads lines, prints each valid packet, writes the telemetry CSV (and, when
-reading the real dongle, a raw log for replay later), and prints the
-received / dropped / missed counts at the end. Ctrl+C stops it cleanly.
+Opens the live dashboard (or, with --no-plot, just prints), writes the
+telemetry CSV (and, when reading the real dongle, a raw log for replay
+later), and prints the received / dropped / missed counts at the end.
+Close the window or press Ctrl+C to stop.
 """
 
 from __future__ import annotations
@@ -29,6 +30,27 @@ def describe(r: Reading) -> str:
             f"alt {_fmt(p.altitude_m, ' m', 1)} (max {_fmt(p.max_altitude_m, ' m', 1)})  batt {_fmt(p.battery_v, ' V', 2)}{rssi}")
 
 
+class Session:
+    """What happens to every line, with or without the dashboard: save it to
+    the raw log (live only), decode it, and write/print valid packets."""
+
+    def __init__(self, telemetry: TelemetryCsv, raw: Optional[RawLog], quiet: bool) -> None:
+        self.station = Station()
+        self._telemetry = telemetry
+        self._raw = raw
+        self._quiet = quiet
+
+    def handle(self, rx_time_s: float, line: str) -> Optional[Reading]:
+        if self._raw:
+            self._raw.write(rx_time_s, line)
+        reading = self.station.handle(line, rx_time_s)
+        if reading:
+            self._telemetry.write(reading)
+            if not self._quiet:
+                print(describe(reading))
+        return reading
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(
         prog="ground_station",
@@ -41,11 +63,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--fast", action="store_true", help="replay with no waiting")
     parser.add_argument("--out", type=Path, default=Path("logs"), help="folder for output files (default ./logs)")
     parser.add_argument("--quiet", action="store_true", help="don't print each packet")
+    parser.add_argument("--no-plot", action="store_true", help="no dashboard window, just print")
     args = parser.parse_args(argv)
 
     args.out.mkdir(parents=True, exist_ok=True)
     stamp = time.strftime("%Y%m%d_%H%M%S")
-    station = Station()
 
     with ExitStack() as files:
         telemetry = TelemetryCsv(files.enter_context(open(args.out / f"telemetry_{stamp}.csv", "w", newline="")))
@@ -53,23 +75,30 @@ def main(argv: Optional[List[str]] = None) -> int:
         if args.port:
             raw = RawLog(files.enter_context(open(args.out / f"raw_{stamp}.csv", "w", newline="")))
             lines = serial_lines(args.port, args.baud)
+            title = f"TVR-1 ground station   ·   live: {args.port}"
         else:
             lines = replay_lines(args.replay, speed=None if args.fast else args.speed)
+            title = f"TVR-1 ground station   ·   replay: {args.replay.name}"
+        session = Session(telemetry, raw, args.quiet)
 
-        print(f"writing to {args.out}/ ({stamp}); Ctrl+C to stop")
+        plot = not args.no_plot
+        if plot:
+            from .dashboard import can_show_window, run_dashboard
+            if not can_show_window():
+                print("no display available, running without the dashboard (use --no-plot to skip this check)")
+                plot = False
+
+        print(f"writing to {args.out}/ ({stamp}); {'close the window' if plot else 'Ctrl+C'} to stop")
         try:
-            for rx_time_s, line in lines:
-                if raw:
-                    raw.write(rx_time_s, line)
-                reading = station.handle(line, rx_time_s)
-                if reading:
-                    telemetry.write(reading)
-                    if not args.quiet:
-                        print(describe(reading))
+            if plot:
+                run_dashboard(lines, session.handle, session.station, title, live=bool(args.port))
+            else:
+                for rx_time_s, line in lines:
+                    session.handle(rx_time_s, line)
         except KeyboardInterrupt:
             pass
 
-    print(station.summary())
+    print(session.station.summary())
     return 0
 
 
