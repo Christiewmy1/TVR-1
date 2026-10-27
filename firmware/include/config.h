@@ -59,6 +59,16 @@
  * progress; shorter glitches don't. */
 #define SENSOR_DROPOUT_RESET_MS           100u
 
+/* ---- Altitude Kalman filter ----------------------------------------------
+ * Ported unchanged from Ethan's DvKalman.m. dt is passed in at run time
+ * (the .m file hard-codes 0.02 s). */
+#define ALT_KF_Q_POS                      1.0f   /* process noise, position */
+#define ALT_KF_Q_VEL                      5.0f   /* process noise, velocity */
+#define ALT_KF_R                          10.0f  /* measurement noise variance */
+#define ALT_KF_P0                         5.0f   /* initial uncertainty (P = P0 * I) */
+#define ALT_KF_INIT_POS_M                 0.0f
+#define ALT_KF_INIT_VEL_MPS               20.0f  /* TODO(placeholder): confirm with Ethan; the rocket is still on the pad, 0 may be meant */
+
 /* ---- Gimbal PID ---------------------------------------------------------
  * Ported unchanged from Simulation/PID_sim_TwoAxis.m (team lead confirmed).
  * The MATLAB notes call these starting-point gains, not yet tuned. Same
