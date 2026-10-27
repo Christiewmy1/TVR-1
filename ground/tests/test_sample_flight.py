@@ -28,10 +28,10 @@ def replay():
 
 def test_counts_match_the_injected_faults():
     station, _ = replay()
-    # 357 packets sent: seq 13, 110, 207, 304 lost; 6 corrupted; 2 cut off.
-    assert station.received == 345
-    assert station.dropped == {"checksum": 6, "rx_format": 2}
-    assert station.missed == 12  # 4 lost + 8 dropped
+    # 179 packets sent: seq 13 and 110 lost; 7, 57, 107, 157 corrupted; 75 cut off.
+    assert station.received == 172
+    assert station.dropped == {"checksum": 4, "rx_format": 1}
+    assert station.missed == 7  # 2 lost + 5 dropped
 
 
 def test_states_arrive_in_flight_order():
@@ -40,20 +40,20 @@ def test_states_arrive_in_flight_order():
     for r in readings:
         if not seen or seen[-1] != r.packet.state.name:
             seen.append(r.packet.state.name)
-    # APOGEE lasts one sensor sample on the rocket, so a 10 Hz packet
-    # stream normally never catches it.
-    assert seen == ["PAD", "BOOST", "COAST", "DESCENT", "LANDED"]
+    # APOGEE lasts one sensor sample on the rocket; it only shows up because
+    # every state change sends a packet straight away.
+    assert seen == ["PAD", "BOOST", "COAST", "APOGEE", "DESCENT", "LANDED"]
 
 
-def test_peak_altitude_matches_the_sim():
+def test_max_altitude_field_carries_the_peak_to_landing():
     _, readings = replay()
-    peak = max(r.packet.altitude_m for r in readings)
-    assert abs(peak - 265.7) <= 0.1  # OpenRocket apogee 265.728 m
+    assert readings[0].packet.max_altitude_m is None  # on the pad
+    assert abs(readings[-1].packet.max_altitude_m - 265.7) <= 0.1  # OpenRocket apogee 265.728 m
 
 
 def test_command_line_replay_writes_every_valid_packet(tmp_path, capsys):
     assert main(["--replay", str(SAMPLE), "--fast", "--quiet", "--out", str(tmp_path)]) == 0
     (telemetry_csv,) = tmp_path.glob("telemetry_*.csv")
     with open(telemetry_csv, newline="") as f:
-        assert sum(1 for _ in csv.reader(f)) == 1 + 345  # header + rows
-    assert "received 345, dropped 8" in capsys.readouterr().out
+        assert sum(1 for _ in csv.reader(f)) == 1 + 172  # header + rows
+    assert "received 172, dropped 5" in capsys.readouterr().out

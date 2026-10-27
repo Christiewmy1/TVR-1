@@ -6,7 +6,7 @@ from ground_station.station import Station
 
 def rcv(seq, time_ms, state=0, alt="100", rssi=-50):
     """A +RCV line carrying a valid packet."""
-    body = f"TVR,1,{seq},{time_ms},{state},{alt},0,0,7400"
+    body = f"TVR,1,{seq},{time_ms},{state},{alt},{alt},0,0,7400"
     packet = f"${body}*{crc16(body.encode('ascii')):04X}"
     return f"+RCV=1,{len(packet)},{packet},{rssi},9.0"
 

@@ -48,4 +48,9 @@ void flight_sm_init(FlightStateMachine *sm);
  * forced and sm->boost_timed_out is set (even with no valid samples). */
 FlightState update_state(FlightStateMachine *sm, const SensorData *d);
 
+/* Highest altitude seen since launch, in metres (it stops changing once
+ * the rocket starts down). NAN before launch or before any valid
+ * barometer reading. */
+float flight_sm_max_altitude(const FlightStateMachine *sm);
+
 #endif /* TVR1_FLIGHT_STATE_H */

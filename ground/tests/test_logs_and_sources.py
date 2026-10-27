@@ -15,21 +15,21 @@ def test_telemetry_csv_row_with_missing_readings():
     out = io.StringIO()
     TelemetryCsv(out).write(Reading(
         rx_time_s=1793000000.0124,
-        packet=Packet(7, 702, FlightState.COAST, 128.0, None, None, 7.39),
+        packet=Packet(7, 702, FlightState.COAST, 128.0, 130.5, None, None, 7.39),
         rssi_dbm=None, snr_db=None,
     ))
     rows = list(csv.reader(io.StringIO(out.getvalue())))
     assert rows[0][:4] == ["rx_time_s", "seq", "time_ms", "state"]
-    assert rows[1] == ["1793000000.012", "7", "702", "COAST", "128.0", "", "", "7.39", "", ""]
+    assert rows[1] == ["1793000000.012", "7", "702", "COAST", "128.0", "130.5", "", "", "7.39", "", ""]
 
 
 def test_raw_log_round_trip_keeps_lines_with_commas():
     out = io.StringIO()
     log = RawLog(out)
-    log.write(10.0, "+RCV=1,28,$TVR,1,0,0,0,0,0,0,7400*1137,-45,9.5\r\n")
+    log.write(10.0, "+RCV=1,29,$TVR,1,0,0,0,0,,0,0,7400*1260,-45,9.5\r\n")
     log.write(10.5, "+OK")
     lines = list(read_raw_log(io.StringIO(out.getvalue())))
-    assert lines == [(10.0, "+RCV=1,28,$TVR,1,0,0,0,0,0,0,7400*1137,-45,9.5"), (10.5, "+OK")]
+    assert lines == [(10.0, "+RCV=1,29,$TVR,1,0,0,0,0,,0,0,7400*1260,-45,9.5"), (10.5, "+OK")]
 
 
 def test_read_raw_log_rejects_other_csv_files():

@@ -10,8 +10,11 @@
  *   seq % 150 == 75  line cut off before RSSI      -> dropped: rx_format
  *   seq % 120 == 60  module status line "+OK" too  -> ignored
  *
- * RSSI/SNR, battery voltage and receive times are made up. Pitch is the
- * sim's tilt from vertical; yaw is sent as 0.
+ * Packets go out on the flight schedule (telemetry_due(): every
+ * TELEMETRY_PERIOD_MS plus every state change) with max altitude from the
+ * state machine. RSSI/SNR, the battery voltage (3S pack draining slowly)
+ * and receive times are made up. Pitch is the sim's tilt from vertical;
+ * yaw is sent as 0.
  *
  * Usage: make sample-log  (writes ground/tests/data/sample_flight_raw.csv)
  * Test tool, not flight code: stdio is fine here.
@@ -23,7 +26,6 @@
 #include "flight_state.h"
 #include "telemetry.h"
 
-#define SEND_PERIOD_MS   100u            /* 10 Hz; real rate TBD */
 #define GROUND_TIME_MS   4000u           /* lying still after the sim ends */
 #define GROUND_STEP_MS   50u
 #define G_MPS2           9.81f
@@ -31,7 +33,7 @@
 
 static FlightStateMachine sm;
 static uint16_t seq;
-static uint32_t next_send_ms;
+static TelemetrySchedule schedule;
 
 static void emit(uint32_t t_ms, float alt, float tilt_deg)
 {
@@ -40,9 +42,10 @@ static void emit(uint32_t t_ms, float alt, float tilt_deg)
         .time_ms = t_ms,
         .state = sm.state,
         .altitude_m = alt,
+        .max_altitude_m = flight_sm_max_altitude(&sm),
         .pitch_deg = tilt_deg,
         .yaw_deg = 0.0f,
-        .battery_v = 7.4f - 0.002f * (float)t_ms / 1000.0f,
+        .battery_v = 12.4f - 0.002f * (float)t_ms / 1000.0f,
     };
     char packet[TELEMETRY_MAX_LEN + 1u];
     size_t len = telemetry_encode(&frame, packet, sizeof packet);
@@ -78,9 +81,8 @@ static void step(uint32_t t_ms, float accel_g, float alt, float tilt_deg)
         .baro_valid = true,
     };
     update_state(&sm, &d);
-    if (t_ms >= next_send_ms) {
+    if (telemetry_due(&schedule, t_ms, sm.state)) {
         emit(t_ms, alt, tilt_deg);
-        next_send_ms += SEND_PERIOD_MS;
     }
 }
 
@@ -97,6 +99,7 @@ int main(int argc, char **argv)
     }
 
     flight_sm_init(&sm);
+    telemetry_schedule_init(&schedule);
     printf("rx_time_s,line\n");
 
     char line[512];

@@ -19,6 +19,11 @@
  * Every telemetry packet (TELEMETRY_MAX_LEN) must fit in it. */
 #define RADIO_MAX_PAYLOAD_BYTES           240u  /* TODO(placeholder): confirm LoRa module with Yusuf */
 
+/* Time between regular telemetry packets (5 Hz); state changes also send
+ * one straight away. A 60-char packet may take a few hundred ms of LoRa
+ * airtime on the module's default settings, so 10 Hz may not fit. */
+#define TELEMETRY_PERIOD_MS               200u  /* TODO(placeholder): confirm with Yusuf once LoRa settings are known */
+
 /* ---- Flight state machine ----------------------------------------------
  * *_HOLD_MS = how long a condition must hold, unbroken, before the state
  * changes. Values from the team lead (2026-10-21), based on the G61W motor;

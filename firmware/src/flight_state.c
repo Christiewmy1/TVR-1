@@ -145,3 +145,11 @@ FlightState update_state(FlightStateMachine *sm, const SensorData *d)
 
     return sm->state;
 }
+
+float flight_sm_max_altitude(const FlightStateMachine *sm)
+{
+    if (sm->state == STATE_PAD || sm->max_altitude_m == -FLT_MAX) {
+        return NAN;
+    }
+    return sm->max_altitude_m;
+}
