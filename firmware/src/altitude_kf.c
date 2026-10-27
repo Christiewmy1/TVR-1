@@ -12,10 +12,10 @@
 
 #include "config.h"
 
-void alt_kf_init(AltitudeKf *kf)
+void alt_kf_init(AltitudeKf *kf, float first_altitude_m)
 {
-    kf->pos = ALT_KF_INIT_POS_M;
-    kf->vel = ALT_KF_INIT_VEL_MPS;
+    kf->pos = first_altitude_m;
+    kf->vel = 0.0f;
     kf->P[0][0] = ALT_KF_P0;
     kf->P[0][1] = 0.0f;
     kf->P[1][0] = 0.0f;
