@@ -192,6 +192,46 @@ void test_single_low_accel_during_boost_is_ignored(void)
     TEST_ASSERT_EQUAL_INT(STATE_BOOST, feed(sample(ACCEL_BOOST_G, 50.0f), 10u));
 }
 
+/* ---- BOOST backup timeout ----------------------------------------------- */
+
+void test_config_timeout_comes_after_normal_burnout_window(void)
+{
+    TEST_ASSERT_GREATER_THAN_UINT32(BURNOUT_MIN_MS_AFTER_LAUNCH + BURNOUT_HOLD_MS,
+                                    BOOST_TIMEOUT_MS);
+}
+
+void test_normal_burnout_is_not_a_timeout(void)
+{
+    reach_coast();
+    TEST_ASSERT_FALSE(sm.boost_timed_out);
+}
+
+void test_stuck_high_accel_forces_coast_at_timeout(void)
+{
+    reach_boost();
+    /* Accel never drops, so burnout is never detected. */
+    TEST_ASSERT_EQUAL_INT(STATE_BOOST,
+                          feed(sample(ACCEL_BOOST_G, PEAK_ALT_M), BOOST_TIMEOUT_MS / DT_MS - 1u));
+    TEST_ASSERT_FALSE(sm.boost_timed_out);
+    TEST_ASSERT_EQUAL_INT(STATE_COAST, feed(sample(ACCEL_BOOST_G, PEAK_ALT_M), 1u));
+    TEST_ASSERT_TRUE(sm.boost_timed_out);
+
+    /* Apogee detection still works after a forced COAST. */
+    TEST_ASSERT_EQUAL_INT(STATE_APOGEE,
+                          feed(sample(ACCEL_COAST_G, BELOW_PEAK_M), SAMPLES_FOR(APOGEE_HOLD_MS)));
+}
+
+void test_timeout_fires_even_with_no_valid_accel(void)
+{
+    SensorData imu_dead = sample(ACCEL_BOOST_G, PEAK_ALT_M);
+    imu_dead.accel_valid = false;
+
+    reach_boost();
+    TEST_ASSERT_EQUAL_INT(STATE_BOOST, feed(imu_dead, BOOST_TIMEOUT_MS / DT_MS - 1u));
+    TEST_ASSERT_EQUAL_INT(STATE_COAST, feed(imu_dead, 1u));
+    TEST_ASSERT_TRUE(sm.boost_timed_out);
+}
+
 /* ---- COAST -> APOGEE -> DESCENT ----------------------------------------- */
 
 void test_still_climbing_is_not_apogee(void)
@@ -330,6 +370,10 @@ int main(void)
     RUN_TEST(test_long_accel_dropout_restarts_launch_hold);
     RUN_TEST(test_burnout_ignored_in_first_second_then_needs_full_hold);
     RUN_TEST(test_single_low_accel_during_boost_is_ignored);
+    RUN_TEST(test_config_timeout_comes_after_normal_burnout_window);
+    RUN_TEST(test_normal_burnout_is_not_a_timeout);
+    RUN_TEST(test_stuck_high_accel_forces_coast_at_timeout);
+    RUN_TEST(test_timeout_fires_even_with_no_valid_accel);
     RUN_TEST(test_still_climbing_is_not_apogee);
     RUN_TEST(test_small_drop_is_not_apogee);
     RUN_TEST(test_drop_of_exactly_the_threshold_is_apogee);

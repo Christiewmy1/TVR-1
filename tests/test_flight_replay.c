@@ -167,6 +167,7 @@ void test_replay_burnout_detected_after_min_time_and_not_after_motor_burnout(voi
     TEST_ASSERT_GREATER_OR_EQUAL_UINT32(entered_ms[STATE_BOOST] + BURNOUT_MIN_MS_AFTER_LAUNCH,
                                         entered_ms[STATE_COAST]);
     TEST_ASSERT_LESS_OR_EQUAL_UINT32(events.burnout_ms, entered_ms[STATE_COAST]);
+    TEST_ASSERT_FALSE_MESSAGE(sm.boost_timed_out, "COAST came from the backup timeout");
 }
 
 void test_replay_apogee_detected_within_1s_after_true_apogee(void)

@@ -71,6 +71,7 @@ void flight_sm_init(FlightStateMachine *sm)
     sm->hold_start_ms = 0u;
     sm->last_sample_ms = 0u;
     sm->launch_ms = 0u;
+    sm->boost_timed_out = false;
     sm->max_altitude_m = -FLT_MAX;  /* any real reading replaces this */
     sm->window_min_m = 0.0f;
     sm->window_max_m = 0.0f;
@@ -105,6 +106,13 @@ FlightState update_state(FlightStateMachine *sm, const SensorData *d)
                          d->time_ms, BURNOUT_HOLD_MS)) {
                 enter(sm, STATE_COAST);
             }
+        }
+        /* Backup, checked on every sample so it works even if the IMU has
+         * stopped giving valid readings. */
+        if (sm->state == STATE_BOOST &&
+            (uint32_t)(d->time_ms - sm->launch_ms) >= BOOST_TIMEOUT_MS) {
+            enter(sm, STATE_COAST);
+            sm->boost_timed_out = true;
         }
         break;
 
