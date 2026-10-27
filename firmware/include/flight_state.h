@@ -30,6 +30,8 @@ typedef struct {
     uint32_t    hold_start_ms;   /* when it started holding */
     uint32_t    last_sample_ms;  /* time of the last usable sample */
     uint32_t    launch_ms;       /* when BOOST was entered */
+    bool        boost_timed_out; /* COAST was forced by BOOST_TIMEOUT_MS
+                                    instead of detected; caller logs it */
     float       max_altitude_m;  /* highest altitude seen since launch */
     float       window_min_m;    /* altitude range seen in the current */
     float       window_max_m;    /*   "landed" window during descent */
@@ -41,7 +43,9 @@ void flight_sm_init(FlightStateMachine *sm);
 /* Feeds one sensor sample and returns the state after it. A sample whose
  * needed sensor is marked invalid is skipped. A short dropout doesn't break
  * a hold in progress, but a gap longer than SENSOR_DROPOUT_RESET_MS
- * restarts it. APOGEE lasts exactly one sample, then moves to DESCENT. */
+ * restarts it. APOGEE lasts exactly one sample, then moves to DESCENT.
+ * If burnout isn't detected within BOOST_TIMEOUT_MS of launch, COAST is
+ * forced and sm->boost_timed_out is set (even with no valid samples). */
 FlightState update_state(FlightStateMachine *sm, const SensorData *d);
 
 #endif /* TVR1_FLIGHT_STATE_H */

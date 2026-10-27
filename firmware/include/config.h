@@ -36,6 +36,10 @@
 #define BURNOUT_HOLD_MS                   50u
 #define BURNOUT_MIN_MS_AFTER_LAUNCH       1000u
 
+/* Backup: if still in BOOST this long after launch detect, force COAST
+ * (nominal burn is 2.04 s). Covers a missed burnout, e.g. a failed IMU. */
+#define BOOST_TIMEOUT_MS                  3000u
+
 /* COAST -> APOGEE: altitude at least this far (m) below its running max */
 #define APOGEE_ALT_DROP_M                 2.0f
 #define APOGEE_HOLD_MS                    100u
