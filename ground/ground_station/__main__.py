@@ -26,7 +26,7 @@ def describe(r: Reading) -> str:
     p = r.packet
     rssi = "" if r.rssi_dbm is None else f"  rssi {r.rssi_dbm} dBm"
     return (f"#{p.seq:<5} t={p.time_ms / 1000:8.3f}s  {p.state.name:<7}  "
-            f"alt {_fmt(p.altitude_m, ' m', 1)}  batt {_fmt(p.battery_v, ' V', 2)}{rssi}")
+            f"alt {_fmt(p.altitude_m, ' m', 1)} (max {_fmt(p.max_altitude_m, ' m', 1)})  batt {_fmt(p.battery_v, ' V', 2)}{rssi}")
 
 
 def main(argv: Optional[List[str]] = None) -> int:

@@ -5,11 +5,11 @@ Code: `firmware/src/telemetry.c` (encoder) and `ground/ground_station/packet.py`
 
 ## Format
 
-One packet is one line of printable ASCII text, at most **54 characters**, sent as the payload of the LoRa module's AT send command:
+One packet is one line of printable ASCII text, at most **60 characters**, sent as the payload of the LoRa module's AT send command:
 
 ```
-$TVR,<ver>,<seq>,<time_ms>,<state>,<alt>,<pitch>,<yaw>,<batt>*<CRC>
-$TVR,1,42,1234,1,515,20,-15,7312*3576
+$TVR,<ver>,<seq>,<time_ms>,<state>,<alt>,<max_alt>,<pitch>,<yaw>,<batt>*<CRC>
+$TVR,1,42,1234,1,515,515,20,-15,12312*A066
 ```
 
 | # | Field | Units / encoding | Range | Example |
@@ -20,22 +20,30 @@ $TVR,1,42,1234,1,515,20,-15,7312*3576
 | 4 | `time_ms` | ms since flight computer boot | 0 – 4294967295 | `1234` |
 | 5 | `state` | flight state code (table below) | 0 – 5 | `1` |
 | 6 | `alt` | altitude above launch site, **0.1 m** | −9999 – 99999 (−999.9 – 9999.9 m) | `515` = 51.5 m |
-| 7 | `pitch` | tilt from vertical, pitch axis, **0.1°** | −1800 – 1800 | `20` = 2.0° |
-| 8 | `yaw` | tilt from vertical, yaw axis, **0.1°** | −1800 – 1800 | `-15` = −1.5° |
-| 9 | `batt` | battery voltage, **mV** | 0 – 65535 | `7312` = 7.312 V |
-| | `CRC` | CRC-16 as 4 hex digits (below) | | `3576` |
+| 7 | `max_alt` | highest altitude since launch, **0.1 m**; empty before launch | same as `alt` | `515` = 51.5 m |
+| 8 | `pitch` | tilt from vertical, pitch axis, **0.1°** | −1800 – 1800 | `20` = 2.0° |
+| 9 | `yaw` | tilt from vertical, yaw axis, **0.1°** | −1800 – 1800 | `-15` = −1.5° |
+| 10 | `batt` | battery voltage, **mV** (3S LiPo: about 9000–12600) | 0 – 65535 | `12312` = 12.312 V |
+| | `CRC` | CRC-16 as 4 hex digits (below) | | `A066` |
 
 - **Numbers** are plain integers: optional `-`, digits only. No `+`, no decimal point, no spaces.
 - **Out-of-range values** are clamped to the range limit by the encoder.
-- **A missing reading** (sensor marked invalid) is sent as an **empty field**, e.g. `$TVR,1,3,100,2,,,,*2B46`. Fields 6–9 can be empty; 1–5 are always present.
+- **A missing reading** (sensor marked invalid) is sent as an **empty field**, e.g. `$TVR,1,3,100,2,,,,,*36E7`. Fields 6–10 can be empty; 1–5 are always present.
+- **`max_alt`** stops changing once the rocket starts down, so the peak survives even if the APOGEE packet is lost.
 
 **State codes** (same numbers as the `FlightState` enum): 0 PAD · 1 BOOST · 2 COAST · 3 APOGEE · 4 DESCENT · 5 LANDED.
 
 **Checksum:** CRC-16/CCITT-FALSE (poly 0x1021, init 0xFFFF) over every character between `$` and `*`, written as 4 hex digits (uppercase when sent; either case is accepted). Check value: `"123456789"` → `29B1`. It's a stronger check than an NMEA-style 8-bit XOR for 2 extra characters, and Python has it built in (`binascii.crc_hqx`).
 
-## Size
+## Size and send rate
 
-The widest possible packet is 54 characters; a typical one is 30–43. **The radio's max payload is TBD.** `config.h` has a 240-byte placeholder until the module is confirmed, and a unit test checks that 54 fits in it. The send rate is also TBD.
+The widest possible packet is 60 characters; a typical one is 30–48. **The radio's max payload is TBD.** `config.h` has a 240-byte placeholder until the module is confirmed, and a unit test checks that 60 fits in it.
+
+**When packets are sent** (`telemetry_due()`):
+- Every `TELEMETRY_PERIOD_MS` (**200 ms = 5 Hz**, placeholder until Yusuf confirms the LoRa settings).
+- **Plus one straight away on every state change**, so one-sample states like APOGEE are sent.
+
+LoRa airtime for a packet this size may be a few hundred ms on the module's default settings, which is why 10 Hz may not fit. Two packets can go out back to back (APOGEE, then DESCENT), so the radio driver must queue a send if the module is still busy. The onboard flash log is the full-rate record; telemetry is for live monitoring.
 
 ## Ground station checks
 
@@ -43,10 +51,10 @@ Every rejected packet is counted by reason:
 
 | Reason | Meaning |
 |---|---|
-| `too_long` | more than 54 characters |
+| `too_long` | more than 60 characters |
 | `framing` | not `$…*XXXX`, wrong tag, or non-ASCII |
 | `checksum` | CRC doesn't match |
-| `field_count` | not exactly 9 fields |
+| `field_count` | not exactly 10 fields |
 | `version` | version isn't 1 |
 | `bad_field` | a field isn't an integer, is out of range, or a required field is empty |
 
@@ -61,11 +69,12 @@ Every rejected packet is counted by reason:
 ## Open questions
 
 - **Yusuf:**
-  - Which LoRa module, its max payload, and its baud rate?
+  - Which LoRa module, its max payload, its LoRa settings (airtime per packet → send rate), and its baud rate?
   - Can the payload contain `,`, `$` and `*`?
   - What exactly is the receive line? If it's REYAX-style `+RCV=<addr>,<len>,<data>,<rssi>,<snr>`, the ground station will take `<len>` characters of data rather than split on commas.
-- **Samantha:** Is 0–65.535 V right for the battery? What will provide the pitch/yaw tilt?
-- **Team lead / Ethan:** Is pitch/yaw tilt the right "orientation" (is roll needed)? What send rate?
+- **Ethan / team lead:** What will provide the pitch/yaw tilt (the Kalman filter estimates altitude and velocity, not attitude)? Is roll needed?
+
+Answered: battery is a 3S 11.1 V LiPo (Spektrum SPMX3003SJ30), which fits the `batt` range. Send rate is 5 Hz plus every state change, with max altitude in every packet (team lead, 2026-10-26).
 
 ## Sign-off
 

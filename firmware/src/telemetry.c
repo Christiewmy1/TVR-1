@@ -10,6 +10,8 @@
 
 #include <math.h>
 
+#include "config.h"
+
 typedef struct {
     char   *buf;
     size_t  len;
@@ -101,6 +103,8 @@ size_t telemetry_encode(const TelemetryFrame *f, char *out, size_t out_size)
     put_char(&w, ',');
     put_scaled(&w, f->altitude_m, 10.0f, TELEMETRY_ALT_DM_MIN, TELEMETRY_ALT_DM_MAX);
     put_char(&w, ',');
+    put_scaled(&w, f->max_altitude_m, 10.0f, TELEMETRY_ALT_DM_MIN, TELEMETRY_ALT_DM_MAX);
+    put_char(&w, ',');
     put_scaled(&w, f->pitch_deg, 10.0f, TELEMETRY_ANGLE_DD_MIN, TELEMETRY_ANGLE_DD_MAX);
     put_char(&w, ',');
     put_scaled(&w, f->yaw_deg, 10.0f, TELEMETRY_ANGLE_DD_MIN, TELEMETRY_ANGLE_DD_MAX);
@@ -117,4 +121,24 @@ size_t telemetry_encode(const TelemetryFrame *f, char *out, size_t out_size)
 
     out[w.len] = '\0';
     return w.len;
+}
+
+void telemetry_schedule_init(TelemetrySchedule *s)
+{
+    s->started = false;
+    s->last_send_ms = 0u;
+    s->last_state = STATE_PAD;
+}
+
+bool telemetry_due(TelemetrySchedule *s, uint32_t now_ms, FlightState state)
+{
+    bool due = !s->started ||
+               state != s->last_state ||
+               (uint32_t)(now_ms - s->last_send_ms) >= TELEMETRY_PERIOD_MS;
+    if (due) {
+        s->started = true;
+        s->last_send_ms = now_ms;
+        s->last_state = state;
+    }
+    return due;
 }

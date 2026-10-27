@@ -17,8 +17,8 @@ from typing import IO, Iterator, Optional, Tuple
 
 from .station import Reading
 
-TELEMETRY_FIELDS = ["rx_time_s", "seq", "time_ms", "state", "altitude_m", "pitch_deg",
-                    "yaw_deg", "battery_v", "rssi_dbm", "snr_db"]
+TELEMETRY_FIELDS = ["rx_time_s", "seq", "time_ms", "state", "altitude_m", "max_altitude_m",
+                    "pitch_deg", "yaw_deg", "battery_v", "rssi_dbm", "snr_db"]
 RAW_FIELDS = ["rx_time_s", "line"]
 
 
@@ -36,7 +36,7 @@ class TelemetryCsv:
         p = r.packet
         self._writer.writerow([
             f"{r.rx_time_s:.3f}", p.seq, p.time_ms, p.state.name,
-            _cell(p.altitude_m), _cell(p.pitch_deg), _cell(p.yaw_deg), _cell(p.battery_v),
+            _cell(p.altitude_m), _cell(p.max_altitude_m), _cell(p.pitch_deg), _cell(p.yaw_deg), _cell(p.battery_v),
             _cell(r.rssi_dbm), _cell(r.snr_db),
         ])
         self._f.flush()  # keep the file current if the laptop dies mid-flight

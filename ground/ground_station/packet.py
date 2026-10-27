@@ -14,7 +14,8 @@ from enum import IntEnum
 from typing import Optional
 
 VERSION = 1
-MAX_LEN = 54  # TELEMETRY_MAX_LEN in telemetry.h
+MAX_LEN = 60  # TELEMETRY_MAX_LEN in telemetry.h
+FIELD_COUNT = 10
 
 # Scaled field ranges (same as telemetry.h).
 ALT_DM_RANGE = (-9999, 99999)
@@ -42,6 +43,7 @@ class Packet:
     time_ms: int
     state: FlightState
     altitude_m: Optional[float]  # None = the rocket had no valid reading
+    max_altitude_m: Optional[float]  # highest since launch; None before launch
     pitch_deg: Optional[float]
     yaw_deg: Optional[float]
     battery_v: Optional[float]
@@ -94,9 +96,9 @@ def decode(text: str) -> Packet:
         raise PacketError("checksum", f"expected {crc16(body_bytes):04X}, got {crc_hex}")
 
     fields = body.split(",")
-    if len(fields) != 9:
-        raise PacketError("field_count", f"{len(fields)} fields, expected 9")
-    tag, version, seq, time_ms, state, alt, pitch, yaw, batt = fields
+    if len(fields) != FIELD_COUNT:
+        raise PacketError("field_count", f"{len(fields)} fields, expected {FIELD_COUNT}")
+    tag, version, seq, time_ms, state, alt, max_alt, pitch, yaw, batt = fields
     if tag != "TVR":
         raise PacketError("framing", f"unknown tag {tag!r}")
     if version != str(VERSION):
@@ -107,6 +109,7 @@ def decode(text: str) -> Packet:
         time_ms=_int_field(time_ms, "time_ms", 0, 2**32 - 1, required=True),
         state=FlightState(_int_field(state, "state", 0, len(FlightState) - 1, required=True)),
         altitude_m=_scaled(_int_field(alt, "altitude", *ALT_DM_RANGE, required=False), 10),
+        max_altitude_m=_scaled(_int_field(max_alt, "max altitude", *ALT_DM_RANGE, required=False), 10),
         pitch_deg=_scaled(_int_field(pitch, "pitch", *ANGLE_DD_RANGE, required=False), 10),
         yaw_deg=_scaled(_int_field(yaw, "yaw", *ANGLE_DD_RANGE, required=False), 10),
         battery_v=_scaled(_int_field(batt, "battery", *BATT_MV_RANGE, required=False), 1000),

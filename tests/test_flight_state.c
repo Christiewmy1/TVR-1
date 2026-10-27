@@ -339,6 +339,30 @@ void test_steady_altitude_without_1g_is_not_landed(void)
                                2u * SAMPLES_FOR(LANDED_HOLD_MS)));
 }
 
+/* ---- max altitude ------------------------------------------------------- */
+
+void test_max_altitude_is_nan_before_launch(void)
+{
+    feed(sample(ACCEL_REST_G, 5.0f), 10u);
+    TEST_ASSERT_TRUE(isnan(flight_sm_max_altitude(&sm)));
+}
+
+void test_max_altitude_keeps_the_peak_after_apogee(void)
+{
+    reach_descent();  /* peaked at PEAK_ALT_M, now below it */
+    feed(sample(ACCEL_REST_G, 3.0f), 10u);
+    TEST_ASSERT_EQUAL_FLOAT(PEAK_ALT_M, flight_sm_max_altitude(&sm));
+}
+
+void test_max_altitude_is_nan_if_baro_never_valid(void)
+{
+    SensorData no_baro = sample(ACCEL_BOOST_G, 50.0f);
+    no_baro.baro_valid = false;
+    feed(no_baro, SAMPLES_FOR(LAUNCH_HOLD_MS) + 5u);
+    TEST_ASSERT_EQUAL_INT(STATE_BOOST, sm.state);
+    TEST_ASSERT_TRUE(isnan(flight_sm_max_altitude(&sm)));
+}
+
 /* ---- forward only ------------------------------------------------------- */
 
 void test_coast_does_not_go_back_to_boost(void)
@@ -385,6 +409,9 @@ int main(void)
     RUN_TEST(test_lying_on_its_side_is_landed);
     RUN_TEST(test_long_dropout_restarts_landed_window);
     RUN_TEST(test_steady_altitude_without_1g_is_not_landed);
+    RUN_TEST(test_max_altitude_is_nan_before_launch);
+    RUN_TEST(test_max_altitude_keeps_the_peak_after_apogee);
+    RUN_TEST(test_max_altitude_is_nan_if_baro_never_valid);
     RUN_TEST(test_coast_does_not_go_back_to_boost);
     RUN_TEST(test_landed_is_final);
     return UNITY_END();
