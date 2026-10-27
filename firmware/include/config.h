@@ -67,4 +67,8 @@
  * (a cone, not a per-axis box), in degrees. */
 #define GIMBAL_MAX_DEFLECTION_DEG         5.0f
 
+/* +1.0f or -1.0f: flips both gimbal commands if the mechanical "positive"
+ * direction turns out to be the opposite of the sim's. */
+#define GIMBAL_DIRECTION_SIGN             1.0f  /* TODO(placeholder): Mechanical to confirm which gimbal direction is positive */
+
 #endif /* TVR1_CONFIG_H */
