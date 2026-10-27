@@ -52,7 +52,7 @@ def test_max_altitude_field_carries_the_peak_to_landing():
 
 
 def test_command_line_replay_writes_every_valid_packet(tmp_path, capsys):
-    assert main(["--replay", str(SAMPLE), "--fast", "--quiet", "--out", str(tmp_path)]) == 0
+    assert main(["--replay", str(SAMPLE), "--fast", "--quiet", "--no-plot", "--out", str(tmp_path)]) == 0
     (telemetry_csv,) = tmp_path.glob("telemetry_*.csv")
     with open(telemetry_csv, newline="") as f:
         assert sum(1 for _ in csv.reader(f)) == 1 + 172  # header + rows
