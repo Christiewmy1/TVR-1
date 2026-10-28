@@ -28,13 +28,18 @@ void alt_kf_update(AltitudeKf *kf, float z, float dt)
     float xp0 = kf->pos + dt * kf->vel;
     float xp1 = kf->vel;
 
+    /* Q = [dt^3/3, dt^2/2; dt^2/2, dt] (scaled) */
+    float q00 = ALT_KF_Q_SCALE * dt * dt * dt / 3.0f;
+    float q01 = ALT_KF_Q_SCALE * dt * dt / 2.0f;
+    float q11 = ALT_KF_Q_SCALE * dt;
+
     /* Pp = A*P*A' + Q */
     float ap00 = kf->P[0][0] + dt * kf->P[1][0];  /* A*P, row 0 */
     float ap01 = kf->P[0][1] + dt * kf->P[1][1];
-    float pp00 = ap00 + dt * ap01 + ALT_KF_Q_POS;
-    float pp01 = ap01;
-    float pp10 = kf->P[1][0] + dt * kf->P[1][1];
-    float pp11 = kf->P[1][1] + ALT_KF_Q_VEL;
+    float pp00 = ap00 + dt * ap01 + q00;
+    float pp01 = ap01 + q01;
+    float pp10 = kf->P[1][0] + dt * kf->P[1][1] + q01;
+    float pp11 = kf->P[1][1] + q11;
 
     if (isnan(z)) {
         kf->pos = xp0;
