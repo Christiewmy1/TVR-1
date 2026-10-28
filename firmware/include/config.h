@@ -60,12 +60,11 @@
 #define SENSOR_DROPOUT_RESET_MS           100u
 
 /* ---- Altitude Kalman filter ----------------------------------------------
- * Noise settings from Ethan's DvKalman.m. dt is the real time between
- * samples, passed in at run time (the .m file's fixed 0.02 s was left over
- * from a sonar example, Ethan confirmed). The filter starts at the first
- * barometer reading with zero velocity, also per Ethan. */
-#define ALT_KF_Q_POS                      1.0f   /* process noise, position */
-#define ALT_KF_Q_VEL                      5.0f   /* process noise, velocity */
+ * From Ethan's DvKalman.m (Simulation/SensorFusion/). dt is the time
+ * between samples, passed in at run time. Process noise is computed from
+ * dt each step: Q = ALT_KF_Q_SCALE * [dt^3/3, dt^2/2; dt^2/2, dt]. The
+ * filter starts at the first barometer reading with zero velocity. */
+#define ALT_KF_Q_SCALE                    1.0f   /* Ethan's .m uses 1; he'll retune for real sensor data */
 #define ALT_KF_R                          10.0f  /* measurement noise variance */
 #define ALT_KF_P0                         5.0f   /* initial uncertainty (P = P0 * I) */
 

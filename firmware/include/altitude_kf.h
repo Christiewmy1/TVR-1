@@ -6,13 +6,14 @@
  * constant-velocity model:
  *
  *   predict:  x = A x,  P = A P A' + Q,     A = [1 dt; 0 1]
+ *             Q = q [dt^3/3, dt^2/2; dt^2/2, dt]
  *   update:   K = P H' / (H P H' + R),      H = [1 0]
  *             x = x + K (z - H x),  P = P - K H P
  *
- * z is the measured altitude. The maths is identical to the MATLAB. Two
- * changes, both agreed with Ethan: dt is a parameter (the .m file's fixed
- * 0.02 s was a leftover), and the filter starts at the first barometer
- * reading with zero velocity (the .m file starts at 0 m, 20 m/s).
+ * z is the measured altitude. The maths is identical to Ethan's
+ * DvKalman.m (Simulation/SensorFusion/). The one difference: it starts at
+ * the first barometer reading instead of 0 m (zero velocity in both),
+ * which is the same thing when altitude is measured from the pad.
  */
 #ifndef TVR1_ALTITUDE_KF_H
 #define TVR1_ALTITUDE_KF_H
